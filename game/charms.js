@@ -28,6 +28,30 @@ const CHARMS = {
     uses: 1,
     cost: 'full_turn',
     description: 'The next attack against you is reflected back to the attacker. Costs your entire turn.'
+  },
+  cloak: {
+    name: 'Cloak',
+    effect: 'Become untargetable for 2 turns',
+    duration: 2,
+    uses: 1,
+    cost: 'full_turn',
+    description: 'Vanish from sight for 2 turns. You can move but cannot attack. Enemies cannot target you.'
+  },
+  berserk: {
+    name: 'Berserk',
+    effect: 'All attacks have zero cooldown for 3 turns, but defense becomes 0',
+    duration: 3,
+    uses: 1,
+    cost: 'full_turn',
+    description: 'Frenzied state: ALL attacks cost no cooldowns for 3 turns, but your defense drops to 0.'
+  },
+  lifesteal: {
+    name: 'Lifesteal',
+    effect: 'Heal for 50% of damage dealt for 4 turns',
+    duration: 4,
+    uses: 1,
+    cost: 'full_turn',
+    description: 'Your attacks heal you for 50% of damage dealt for 4 turns. Sustain through combat.'
   }
 };
 
@@ -85,6 +109,42 @@ function activateCharm(agent, gameState) {
       gameState.combat_log.push({
         turn: gameState.meta.turn,
         event: `${agent.id} activated REVERSAL! Next attack will be reflected`,
+        type: 'charm'
+      });
+      break;
+
+    case 'cloak':
+      agent.is_cloaked = true;
+      agent.cloak_turns_left = 2;
+      gameState.combat_log.push({
+        turn: gameState.meta.turn,
+        event: `${agent.id} activated CLOAK! Untargetable for 2 turns`,
+        type: 'charm'
+      });
+      break;
+
+    case 'berserk':
+      agent.has_berserk_active = true;
+      agent.berserk_turns_left = 3;
+      agent.original_defense = agent.stats.defense;
+      agent.stats.defense = 0;
+      gameState.combat_log.push({
+        turn: gameState.meta.turn,
+        event: `${agent.id} activated BERSERK! Zero cooldowns for 3 turns, but defense is 0!`,
+        type: 'charm'
+      });
+      break;
+
+    case 'lifesteal':
+      agent.active_effects.push({
+        type: 'lifesteal',
+        lifesteal_modifier: 0.5,
+        turns_left: 4
+      });
+      agent.lifesteal_modifier += 0.5;
+      gameState.combat_log.push({
+        turn: gameState.meta.turn,
+        event: `${agent.id} activated LIFESTEAL! Heals 50% of damage dealt for 4 turns`,
         type: 'charm'
       });
       break;

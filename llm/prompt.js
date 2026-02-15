@@ -3,10 +3,10 @@ const { ARCHETYPES } = require('../game/archetypes');
 const { CHARMS } = require('../game/charms');
 
 const ARCHETYPE_TIPS = {
-  berserker: 'Your charge attack hits HARD (12 damage at range 3) but costs 10 HP to yourself. Use it to finish off weakened enemies. Your melee is solid at 9 damage with no cooldown. You thrive in all-in fights.',
-  tank: 'You have the most HP (150) and highest defense (8). Your slam hits ALL adjacent enemies for 8 damage. Play the long game - you outlast everyone. Move toward the center and let others fight.',
-  scout: 'You are the FASTEST (4 speed). Quick strike hits at range 2 for 7 damage. Use your speed to kite slower enemies, grab items, and pick off wounded targets. Avoid prolonged fights.',
-  mage: 'Your ranged attack hits at up to 6 tiles with NO cooldown! Damage: 10 at range 1, down to 4 at range 6. KEEP YOUR DISTANCE. You die fast up close (only 80 HP, 2 defense). Position is everything.'
+  berserker: 'Your charge attack hits HARD (15 damage at range 3) but costs 10 HP to yourself. Use it to finish off weakened enemies. Your melee is solid at 11 damage with no cooldown. You thrive in all-in fights.',
+  tank: 'You have the most HP (150) and highest defense (8). Your slam hits ALL adjacent enemies for 10 damage. Play the long game - you outlast everyone. Move toward the center and let others fight.',
+  scout: 'You are the FASTEST (4 speed). Quick strike hits at range 2 for 9 damage. Use your speed to kite slower enemies, grab items, and pick off wounded targets. Avoid prolonged fights.',
+  mage: 'Your ranged attack hits at up to 6 tiles with NO cooldown! Damage: 12 at range 1, down to 6 at range 6. KEEP YOUR DISTANCE. You die fast up close (only 80 HP, 2 defense). Position is everything.'
 };
 
 function buildArchetypeSelectionPrompt(agentId, agentName) {
@@ -26,7 +26,7 @@ function buildArchetypeSelectionPrompt(agentId, agentName) {
       if (atk.cooldown > 0) prompt += `, Cooldown ${atk.cooldown} turns`;
       if (atk.self_damage) prompt += `, Self-damage ${atk.self_damage}`;
       if (atk.hits_all_adjacent) prompt += `, Hits ALL adjacent enemies`;
-      if (atkName === 'ranged' && key === 'mage') prompt += ` (scales: 10 at range 1, 4 at range 6)`;
+      if (atkName === 'ranged' && key === 'mage') prompt += ` (scales: 12 at range 1, 6 at range 6)`;
     }
 
     prompt += `\n  Strategy: ${arch.description}\n\n`;
@@ -96,12 +96,15 @@ Stats: Attack ${agent.stats.attack} | Defense ${agent.stats.defense} | Speed ${a
   if (agent.has_shield) prompt += `  - Shield Token: ACTIVE (blocks next hit)\n`;
   if (agent.is_defending) prompt += `  - Defending: 70% damage reduction this turn\n`;
   if (agent.has_reversal_active) prompt += `  - Reversal: ACTIVE (next hit reflects back)\n`;
+  if (agent.is_cloaked) prompt += `  - Cloak: ACTIVE (untargetable for ${agent.cloak_turns_left} turns)\n`;
+  if (agent.has_berserk_active) prompt += `  - Berserk: ACTIVE (zero cooldowns but zero defense for ${agent.berserk_turns_left} turns)\n`;
+  if (agent.lifesteal_modifier > 0) prompt += `  - Lifesteal: ${Math.round(agent.lifesteal_modifier * 100)}% healing from damage dealt\n`;
 
   // Zone warning — placed early so models prioritize it
   if (!inZone) {
     prompt += `
 !!! CRITICAL: YOU ARE OUTSIDE THE SAFE ZONE !!!
-You lose 5 HP EVERY TURN outside the zone. This WILL kill you.
+You lose 10 HP EVERY TURN outside the zone. This WILL kill you.
 PRIORITY #1: ${directionGuidance}
 Do NOT attack or defend — you MUST move toward the center to survive.
 `;
@@ -118,7 +121,7 @@ Zone: Center at [${zone.center[0]}, ${zone.center[1]}], Radius ${zone.radius}`;
   }
 
   prompt += `
-Status: ${inZone ? 'INSIDE the safe zone' : '!!! OUTSIDE ZONE - taking 5 damage/turn !!!'}
+Status: ${inZone ? 'INSIDE the safe zone' : '!!! OUTSIDE ZONE - taking 10 damage/turn !!!'}
 Navigation: ${directionGuidance}
 ${distToCenter > zone.radius ? '⚠️ WARNING: Zone will shrink - you need to move toward center NOW!' : ''}`;
 
@@ -156,9 +159,13 @@ ${distToCenter > zone.radius ? '⚠️ WARNING: Zone will shrink - you need to m
     for (const item of sortedItems) {
       const benefits = {
         health_pack: '+30 HP (HEAL)',
-        damage_amp: '+3 Attack for 5 turns (MASSIVE DAMAGE BOOST)',
-        speed_boost: '+2 Speed for 5 turns (MOBILITY)',
-        shield_token: 'Blocks next hit completely (SURVIVAL)'
+        damage_amp: '+30% attack for 3 turns (MASSIVE DAMAGE BOOST)',
+        speed_boost: '+2 speed for 3 turns (MOBILITY)',
+        shield_token: 'Blocks next hit completely (SURVIVAL)',
+        smoke_bomb: 'Reset ALL cooldowns instantly (COMBO POTENTIAL)',
+        vampire_fang: '+25% damage and 30% lifesteal for 3 turns (SUSTAIN)',
+        adrenaline_shot: '+3 speed and zone immunity for 4 turns (ESCAPE)',
+        ghost_shard: 'Teleport to random safe location (PANIC BUTTON)'
       };
       const benefit = benefits[item.type] || 'Power-up';
       prompt += `- ${item.type.replace('_', ' ').toUpperCase()} at [${item.position[0]}, ${item.position[1]}] - ${item.dist} tiles away`;
@@ -245,7 +252,7 @@ ${distToCenter > zone.radius ? '⚠️ WARNING: Zone will shrink - you need to m
 
 CRITICAL REMINDERS:
 - Power-ups give HUGE advantages - grab them when safe!
-- Stay in the zone or you'll die from zone damage (5 HP/turn)
+- Stay in the zone or you'll die from zone damage (10 HP/turn - VERY LETHAL)
 - Your position is [${agent.position[0]}, ${agent.position[1]}] - zone center is [${zone.center[0]}, ${zone.center[1]}]
 - Each direction moves you 1 tile: north = -Y, south = +Y, east = +X, west = -X
 - You can move UP TO ${agent.stats.speed + agent.speed_bonus} tiles, but you can choose fewer if needed

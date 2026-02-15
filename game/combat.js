@@ -81,10 +81,10 @@ function executeAction(agentId, action, gameState) {
       const attackType = (action.params && action.params.attack_type) || 'melee';
       const target = gameState.agents[targetId];
 
-      if (!target || !target.is_alive) {
+      if (!target || !target.is_alive || target.is_cloaked) {
         gameState.combat_log.push({
           turn: gameState.meta.turn,
-          event: `${agentId} tried to attack ${targetId} but target is invalid/dead`,
+          event: `${agentId} tried to attack ${targetId} but target is ${!target ? 'invalid' : !target.is_alive ? 'dead' : 'cloaked'}`,
           type: 'combat'
         });
         break;
@@ -100,8 +100,8 @@ function executeAction(agentId, action, gameState) {
         break;
       }
 
-      // Check cooldown
-      if (agent.cooldowns[attackType] > 0) {
+      // Check cooldown (Berserk bypasses cooldowns)
+      if (!agent.has_berserk_active && agent.cooldowns[attackType] > 0) {
         gameState.combat_log.push({
           turn: gameState.meta.turn,
           event: `${agentId} ${attackType} on cooldown (${agent.cooldowns[attackType]} turns)`,
@@ -144,7 +144,12 @@ function executeAction(agentId, action, gameState) {
           }
         }
 
-        agent.cooldowns[attackType] = attackDef.cooldown;
+        // Berserk: cooldown stays at 0
+        if (agent.has_berserk_active) {
+          agent.cooldowns[attackType] = 0;
+        } else {
+          agent.cooldowns[attackType] = attackDef.cooldown;
+        }
         break;
       }
 
@@ -153,7 +158,7 @@ function executeAction(agentId, action, gameState) {
 
       // Mage ranged scaling
       if (attackType === 'ranged' && agent.archetype === 'mage') {
-        damage = Math.max(10 - distance, 4);
+        damage = Math.max(12 - distance, 6);
       }
 
       // Apply damage bonus from effects
@@ -177,8 +182,12 @@ function executeAction(agentId, action, gameState) {
         });
       }
 
-      // Set cooldown
-      agent.cooldowns[attackType] = attackDef.cooldown;
+      // Set cooldown (Berserk resets cooldowns to 0)
+      if (agent.has_berserk_active) {
+        agent.cooldowns[attackType] = 0;
+      } else {
+        agent.cooldowns[attackType] = attackDef.cooldown;
+      }
       break;
     }
 
@@ -287,6 +296,21 @@ function resolveDamageOnTarget(attacker, target, damage, gameState, events) {
     targetHealth: target.health
   });
 
+  // Check for lifesteal effects
+  if (attacker.lifesteal_modifier > 0) {
+    const healAmount = Math.floor(damage * attacker.lifesteal_modifier);
+    const oldHealth = attacker.health;
+    attacker.health = Math.min(attacker.health + healAmount, attacker.max_health);
+    const actualHeal = attacker.health - oldHealth;
+    if (actualHeal > 0) {
+      gameState.combat_log.push({
+        turn: gameState.meta.turn,
+        event: `${attacker.id} lifesteal healed ${actualHeal} HP (${attacker.health}/${attacker.max_health})`,
+        type: 'lifesteal'
+      });
+    }
+  }
+
   return damage;
 }
 
@@ -299,14 +323,36 @@ function tickCooldowns(agent) {
 }
 
 function tickEffects(agent) {
+  // Tick Berserk duration
+  if (agent.has_berserk_active) {
+    agent.berserk_turns_left--;
+    if (agent.berserk_turns_left <= 0) {
+      agent.has_berserk_active = false;
+      agent.stats.defense = agent.original_defense;  // Restore defense
+    }
+  }
+
+  // Tick Cloak duration
+  if (agent.is_cloaked) {
+    agent.cloak_turns_left--;
+    if (agent.cloak_turns_left <= 0) {
+      agent.is_cloaked = false;
+    }
+  }
+
+  // Tick active effects array
   agent.active_effects = agent.active_effects.filter(effect => {
     effect.turns_left--;
     if (effect.turns_left <= 0) {
       // Remove the effect's modifier
-      if (effect.type === 'rage' || effect.type === 'damage_amp') {
+      if (effect.type === 'rage' || effect.type === 'damage_amp' || effect.type === 'vampire_fang') {
         agent.damage_bonus = Math.max(0, agent.damage_bonus - effect.modifier);
-      } else if (effect.type === 'speed_boost') {
+      } else if (effect.type === 'speed_boost' || effect.type === 'adrenaline_shot') {
         agent.speed_bonus = Math.max(0, agent.speed_bonus - effect.modifier);
+      } else if (effect.type === 'lifesteal') {
+        agent.lifesteal_modifier = Math.max(0, agent.lifesteal_modifier - (effect.lifesteal_modifier || 0));
+      } else if (effect.type === 'vampire_fang') {
+        agent.lifesteal_modifier = Math.max(0, agent.lifesteal_modifier - (effect.lifesteal_modifier || 0));
       }
       return false;
     }

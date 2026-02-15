@@ -79,6 +79,13 @@ function createAgent(agentDef, archetype, charm, position) {
     has_shield: false,
     is_defending: false,
     has_reversal_active: false,
+    is_cloaked: false,
+    cloak_turns_left: 0,
+    has_berserk_active: false,
+    berserk_turns_left: 0,
+    zone_immunity_active: false,
+    lifesteal_modifier: 0,
+    original_defense: arch.defense,
     last_action: null,
     is_alive: true,
     reasoning: ''
@@ -143,7 +150,7 @@ async function initGame(obstacles = []) {
   }
 
   // Phase 2: Assign random charms
-  const charmTypes = shuffleArray(['rage', 'teleport', 'heal', 'reversal']);
+  const charmTypes = shuffleArray(['rage', 'teleport', 'heal', 'reversal', 'cloak', 'berserk', 'lifesteal']);
 
   // Phase 3: Create agents at random positions inside zone
   let startingPositions = generateStartingPositions();
@@ -301,13 +308,23 @@ async function runRound(gameState) {
   // Apply zone damage
   for (const agent of Object.values(gameState.agents)) {
     if (agent.is_alive && !isInZone(agent.position, gameState.meta.zone)) {
-      agent.health -= ZONE_DAMAGE;
-      gameState.combat_log.push({
-        turn,
-        event: `${agent.id} is outside the zone! -${ZONE_DAMAGE} HP (${agent.health} remaining)`,
-        type: 'zone_damage'
-      });
-      emitEvent('zone_damage', { agentId: agent.id, damage: ZONE_DAMAGE, health: agent.health });
+      if (agent.zone_immunity_active) {
+        agent.zone_immunity_active = false;
+        gameState.combat_log.push({
+          turn,
+          event: `${agent.id} immunity absorbed zone damage!`,
+          type: 'zone_immunity'
+        });
+        emitEvent('zone_immunity', { agentId: agent.id });
+      } else {
+        agent.health -= ZONE_DAMAGE;
+        gameState.combat_log.push({
+          turn,
+          event: `${agent.id} is outside the zone! -${ZONE_DAMAGE} HP (${agent.health} remaining)`,
+          type: 'zone_damage'
+        });
+        emitEvent('zone_damage', { agentId: agent.id, damage: ZONE_DAMAGE, health: agent.health });
+      }
     }
   }
 

@@ -1,11 +1,11 @@
 const GRID_SIZE = 32;
 const MAX_TURNS = 50;
-const ZONE_SHRINK_INTERVAL = 8;
+const ZONE_SHRINK_INTERVAL = 6;
 const ZONE_SHRINK_AMOUNT = 2;
-const ZONE_DAMAGE = 5;
+const ZONE_DAMAGE = 10;
 const SPAWN_INTERVAL = 3;
 const LLM_TIMEOUT = 15000;
-const TURN_DELAY_MS = 2000;
+const TURN_DELAY_MS = 1200;
 
 const ZONE_INITIAL = {
   center: [16, 16],

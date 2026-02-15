@@ -4,7 +4,11 @@ const DROP_TYPES = [
   { type: 'health_pack', effect: '+30 HP', weight: 30 },
   { type: 'damage_amp', effect: '+30% attack 3 turns', weight: 25 },
   { type: 'speed_boost', effect: '+2 speed 3 turns', weight: 25 },
-  { type: 'shield_token', effect: 'Immune to next attack', weight: 20 }
+  { type: 'shield_token', effect: 'Immune to next attack', weight: 20 },
+  { type: 'smoke_bomb', effect: 'Reset all cooldowns', weight: 15 },
+  { type: 'vampire_fang', effect: '+5 damage and 30% lifesteal 3 turns', weight: 18 },
+  { type: 'adrenaline_shot', effect: '+3 speed and zone immunity 4 turns', weight: 20 },
+  { type: 'ghost_shard', effect: 'Teleport to random safe location', weight: 12 }
 ];
 
 function weightedRandom(items) {
@@ -88,6 +92,65 @@ function applyItem(agent, item, gameState) {
       gameState.combat_log.push({
         turn: gameState.meta.turn,
         event: `${agent.id} picked up shield token! Immune to next attack`,
+        type: 'pickup'
+      });
+      break;
+
+    case 'smoke_bomb':
+      // Reset all cooldowns
+      for (const key of Object.keys(agent.cooldowns)) {
+        agent.cooldowns[key] = 0;
+      }
+      gameState.combat_log.push({
+        turn: gameState.meta.turn,
+        event: `${agent.id} picked up smoke bomb! All cooldowns reset`,
+        type: 'pickup'
+      });
+      break;
+
+    case 'vampire_fang':
+      agent.active_effects.push({
+        type: 'vampire_fang',
+        modifier: 0.25,
+        lifesteal_modifier: 0.3,
+        turns_left: 3
+      });
+      agent.damage_bonus += 0.25;
+      agent.lifesteal_modifier = (agent.lifesteal_modifier || 0) + 0.3;
+      gameState.combat_log.push({
+        turn: gameState.meta.turn,
+        event: `${agent.id} picked up vampire fang! +25% damage and 30% lifesteal for 3 turns`,
+        type: 'pickup'
+      });
+      break;
+
+    case 'adrenaline_shot':
+      agent.active_effects.push({
+        type: 'adrenaline_shot',
+        modifier: 3,
+        turns_left: 4
+      });
+      agent.speed_bonus += 3;
+      agent.zone_immunity_active = true;
+      gameState.combat_log.push({
+        turn: gameState.meta.turn,
+        event: `${agent.id} picked up adrenaline shot! +3 speed for 4 turns and zone immunity`,
+        type: 'pickup'
+      });
+      break;
+
+    case 'ghost_shard':
+      const newPos = getRandomEmptyTileInZone(
+        gameState.meta.zone,
+        gameState.agents,
+        gameState.items,
+        gameState.obstacles
+      );
+      const oldPos = [...agent.position];
+      agent.position = newPos;
+      gameState.combat_log.push({
+        turn: gameState.meta.turn,
+        event: `${agent.id} used ghost shard! Teleported from [${oldPos[0]}, ${oldPos[1]}] to [${newPos[0]}, ${newPos[1]}]`,
         type: 'pickup'
       });
       break;
