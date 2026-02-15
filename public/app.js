@@ -13,6 +13,7 @@ const turnDisplay = document.getElementById('turn-display');
 const zoneDisplay = document.getElementById('zone-display');
 const statusText = document.getElementById('status-text');
 const combatLog = document.getElementById('combat-log');
+const commentaryFeed = document.getElementById('commentary-feed');
 const agentCardsContainer = document.getElementById('agent-cards-container');
 const liveFeed = document.getElementById('live-feed');
 const trashTalk = document.getElementById('trash-talk');
@@ -208,6 +209,11 @@ function connectSSE() {
     updateAgentCards(data.agents);
   });
 
+  eventSource.addEventListener('commentary', (e) => {
+    const data = JSON.parse(e.data);
+    addCommentaryEntry(data.turn, data.commentary);
+  });
+
   eventSource.addEventListener('game_over', (e) => {
     const data = JSON.parse(e.data);
     gamePhase = 'finished';
@@ -341,11 +347,9 @@ function addLiveFeedEntry(turn, agentId, reasoning) {
   entry.style.borderLeftColor = colors[agentId] || '#fff';
 
   entry.innerHTML = `
-    <div class="feed-meta">
-      <span class="feed-turn">T${turn}</span>
-      <span class="feed-agent" style="color: ${colors[agentId]}">${agentId.toUpperCase()}</span>
-    </div>
-    <div class="feed-reasoning">${reasoning || 'No reasoning provided'}</div>
+    <span class="feed-turn">[T${turn}]</span>
+    <span class="feed-agent" style="color: ${colors[agentId]}">${agentId.toUpperCase()}:</span>
+    <span class="feed-reasoning">${reasoning || 'No reasoning provided'}</span>
   `;
 
   // Check if user is at bottom before auto-scrolling
@@ -401,6 +405,27 @@ function addTrashTalkEntry(turn, agentId, message) {
   // Keep last 30 entries
   while (trashTalk.children.length > 30) {
     trashTalk.removeChild(trashTalk.firstChild);
+  }
+}
+
+// Commentary Feed
+function addCommentaryEntry(turn, commentary) {
+  if (!commentaryFeed || !commentary) return;
+
+  const entry = document.createElement('div');
+  entry.className = 'commentary-entry';
+
+  entry.innerHTML = `
+    <div class="commentary-turn">[TURN ${turn}]</div>
+    <div>${commentary}</div>
+  `;
+
+  commentaryFeed.appendChild(entry);
+  commentaryFeed.scrollTop = commentaryFeed.scrollHeight;
+
+  // Keep last 20 entries
+  while (commentaryFeed.children.length > 20) {
+    commentaryFeed.removeChild(commentaryFeed.firstChild);
   }
 }
 
@@ -586,10 +611,13 @@ async function resetGame() {
     agentCardsContainer.innerHTML = '';
     combatLog.innerHTML = '';
     liveFeed.innerHTML = '';
+    trashTalk.innerHTML = '';
+    commentaryFeed.innerHTML = '';
     killFeed.innerHTML = '';
     startBtn.disabled = false;
     victoryOverlay.classList.remove('visible');
     window.RENDERER.stopAnimationLoop();
+    window.RENDERER.clearCanvas();
     connectSSE();
   } catch (err) {
     console.error('Reset error:', err);

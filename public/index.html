@@ -59,27 +59,33 @@
       </div>
     </main>
 
-    <!-- Trash Talk Column -->
+    <!-- Commentary Column -->
     <aside class="sidebar sidebar-trash">
+      <div class="sidebar-header">
+        <i class="fa-solid fa-microphone"></i> LIVE COMMENTARY
+      </div>
+      <div id="commentary-feed" class="commentary-content"></div>
+    </aside>
+
+    <!-- Right Sidebar: Trash Talk -->
+    <aside class="sidebar sidebar-right">
       <div class="sidebar-header">
         <i class="fa-solid fa-message"></i> TRASH TALK
       </div>
       <div id="trash-talk" class="trash-talk"></div>
     </aside>
-
-    <!-- Right Sidebar: Live Feed -->
-    <aside class="sidebar sidebar-right">
-      <div class="sidebar-header">
-        <i class="fa-solid fa-comments"></i> AGENT THOUGHTS
-      </div>
-      <div id="live-feed" class="live-feed"></div>
-    </aside>
   </div>
 
-  <!-- Bottom: Combat Log -->
+  <!-- Bottom: Combat Log & Agent Thoughts -->
   <div class="combat-log-panel">
-    <div class="panel-header">COMBAT LOG</div>
-    <div id="combat-log" class="combat-log-content"></div>
+    <div class="combat-section">
+      <div class="panel-header">COMBAT LOG</div>
+      <div id="combat-log" class="combat-log-content"></div>
+    </div>
+    <div class="commentary-section">
+      <div class="panel-header"><i class="fa-solid fa-comments"></i> AGENT THOUGHTS</div>
+      <div id="live-feed" class="live-feed"></div>
+    </div>
   </div>
 
   <!-- Victory Modal -->
@@ -96,6 +102,16 @@
 
   <!-- Kill Feed -->
   <div id="kill-feed" class="kill-feed"></div>
+
+  <!-- Mobile Blocker -->
+  <div class="mobile-blocker">
+    <div class="mobile-blocker-content">
+      <i class="fa-solid fa-desktop" style="font-size: 48px; margin-bottom: 20px;"></i>
+      <h1>DESKTOP REQUIRED</h1>
+      <p>This experience requires a larger screen.</p>
+      <p>Please use a desktop or laptop computer.</p>
+    </div>
+  </div>
 
   <!-- Scripts -->
   <script src="pixels.js"></script>

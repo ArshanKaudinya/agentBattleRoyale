@@ -379,11 +379,19 @@ function stopAnimationLoop() {
   animating = false;
 }
 
+function clearCanvas() {
+  if (!ctx) return;
+  ctx.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
+  animationEffects = [];
+  speechBubbles = [];
+}
+
 window.RENDERER = {
   initRenderer,
   render,
   startAnimationLoop,
   stopAnimationLoop,
+  clearCanvas,
   addAttackEffect,
   addDamageEffect,
   addHealEffect,

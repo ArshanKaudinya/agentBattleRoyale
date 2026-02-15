@@ -243,7 +243,7 @@ Defend: {"reasoning": "why", "action": "defend", "trash_talk": "optional short t
 
 Use Charm: {"reasoning": "why", "action": "use_charm", "trash_talk": "optional short taunt"}
 
-NOTE: "trash_talk" is optional - only include if you want to taunt. Keep it brief (max 10 words).
+NOTE: "trash_talk" is optional - only include if you want to taunt but make it spicy and dramatical, maybe even slightly toxic. Keep it brief (max 10 words). Keep reasoning short as well.
 ${agent.charm && agent.charm.type === 'heal' && agent.charm.uses_left > 0 ? '\nFREE HEAL: Add "free_action": "use_charm" to any action to heal for free!' : ''}
 
 YOUR TURN:`;

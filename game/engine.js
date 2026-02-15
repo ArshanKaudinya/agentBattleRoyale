@@ -10,6 +10,7 @@ const { executeAction, tickCooldowns, tickEffects } = require('./combat');
 const { spawnDrop } = require('./spawns');
 const { buildArchetypeSelectionPrompt, buildTurnPrompt } = require('../llm/prompt');
 const { getAllActions, getArchetypeChoices } = require('../llm/provider');
+const { getNarration } = require('../llm/narrator');
 
 // SSE clients
 let sseClients = [];
@@ -172,6 +173,41 @@ async function initGame() {
   return gameState;
 }
 
+function buildRoundSummary(actions, eliminations, gameState, turn) {
+  let summary = '';
+
+  // Actions taken
+  for (const result of actions) {
+    const agent = gameState.agents[result.agentId];
+    if (!agent) continue;
+
+    const action = result.parsed.action;
+    const params = result.parsed.params || {};
+
+    switch (action) {
+      case 'move':
+        summary += `${result.agentId} moved ${params.direction}\n`;
+        break;
+      case 'attack':
+        summary += `${result.agentId} attacked ${params.target_id} with ${params.attack_type}\n`;
+        break;
+      case 'defend':
+        summary += `${result.agentId} defended\n`;
+        break;
+      case 'use_charm':
+        summary += `${result.agentId} used their charm\n`;
+        break;
+    }
+  }
+
+  // Eliminations
+  if (eliminations.length > 0) {
+    summary += `\nELIMINATED: ${eliminations.join(', ')}\n`;
+  }
+
+  return summary;
+}
+
 async function runRound(gameState) {
   const turn = gameState.meta.turn;
   console.log(`\n=== TURN ${turn} ===`);
@@ -288,6 +324,18 @@ async function runRound(gameState) {
       radius: gameState.meta.zone.radius,
       next_shrink: gameState.meta.zone.next_shrink_turn
     });
+  }
+
+  // Generate narrator commentary
+  try {
+    const roundSummary = buildRoundSummary(actions, eliminations, gameState, turn);
+    const commentary = await getNarration(roundSummary, gameState);
+    emitEvent('commentary', {
+      turn,
+      commentary
+    });
+  } catch (error) {
+    console.error('Narrator error:', error.message);
   }
 
   // Increment turn
