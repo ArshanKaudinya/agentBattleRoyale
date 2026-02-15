@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Agent Battle Royale</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- Header -->
+  <div class="header">
+    <h1 class="title">AGENT BATTLE ROYALE</h1>
+    <div class="header-stats">
+      <div class="stat-box">
+        <span class="stat-label">Turn</span>
+        <span class="stat-value" id="turn-display">0</span>
+      </div>
+      <div class="stat-box">
+        <span class="stat-label">Zone</span>
+        <span class="stat-value" id="zone-display">16</span>
+      </div>
+      <div class="stat-box">
+        <span id="phase-display" class="phase-badge waiting">WAITING</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Controls -->
+  <div class="controls">
+    <button class="btn btn-start" id="start-btn">START BATTLE</button>
+    <button class="btn btn-reset" id="reset-btn">RESET</button>
+  </div>
+
+  <!-- Game Area -->
+  <div class="game-layout">
+    <!-- Left sidebar: agents 1 & 2 -->
+    <div class="sidebar" id="sidebar-left"></div>
+
+    <!-- Arena -->
+    <div class="arena-container">
+      <canvas id="arena-canvas"></canvas>
+    </div>
+
+    <!-- Right sidebar: agents 3 & 4 -->
+    <div class="sidebar" id="sidebar-right"></div>
+  </div>
+
+  <!-- Agent Cards (populated dynamically, used as template container) -->
+  <div id="agent-cards" style="display: none;"></div>
+
+  <!-- Combat Log -->
+  <div class="log-container">
+    <div class="log-header">COMBAT LOG</div>
+    <div id="combat-log"></div>
+  </div>
+
+  <!-- Kill Feed Overlay -->
+  <div id="kill-feed"></div>
+
+  <!-- Victory Overlay -->
+  <div id="victory-overlay">
+    <div class="victory-content">
+      <div class="victory-title">VICTORY!</div>
+      <canvas id="victory-sprite"></canvas>
+      <div id="victory-name"></div>
+      <div id="victory-archetype"></div>
+      <div id="victory-stats"></div>
+      <button class="victory-close" onclick="document.getElementById('victory-overlay').classList.remove('visible')">CLOSE</button>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="pixels.js"></script>
+  <script src="renderer.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
