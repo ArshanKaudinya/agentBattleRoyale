@@ -5,7 +5,7 @@ const {
 } = require('./constants');
 const { ARCHETYPES } = require('./archetypes');
 const { CHARMS } = require('./charms');
-const { isInZone } = require('./grid');
+const { isInZone, isObstacle } = require('./grid');
 const { executeAction, tickCooldowns, tickEffects } = require('./combat');
 const { spawnDrop } = require('./spawns');
 const { buildArchetypeSelectionPrompt, buildTurnPrompt } = require('../llm/prompt');
@@ -85,7 +85,7 @@ function createAgent(agentDef, archetype, charm, position) {
   };
 }
 
-async function initGame() {
+async function initGame(obstacles = []) {
   const gameState = {
     meta: {
       turn: 1,
@@ -98,6 +98,7 @@ async function initGame() {
     },
     agents: {},
     items: [],
+    obstacles: obstacles || [],
     combat_log: [],
     events: []
   };
@@ -145,12 +146,40 @@ async function initGame() {
   const charmTypes = shuffleArray(['rage', 'teleport', 'heal', 'reversal']);
 
   // Phase 3: Create agents at random positions inside zone
-  const startingPositions = generateStartingPositions();
+  let startingPositions = generateStartingPositions();
+
+  // Validate positions don't overlap with obstacles
+  const validPositions = [];
+  for (const pos of startingPositions) {
+    if (!isObstacle(pos, obstacles)) {
+      validPositions.push(pos);
+    }
+  }
+
+  // Regenerate any missing positions
+  while (validPositions.length < AGENTS.length) {
+    const angle = Math.random() * Math.PI * 2;
+    const dist = Math.random() * 10;
+    const newPos = [
+      Math.round(ZONE_INITIAL.center[0] + Math.cos(angle) * dist),
+      Math.round(ZONE_INITIAL.center[1] + Math.sin(angle) * dist)
+    ];
+
+    // Check bounds
+    if (newPos[0] < 0 || newPos[0] >= GRID_SIZE || newPos[1] < 0 || newPos[1] >= GRID_SIZE) continue;
+
+    // Check not obstacle and not duplicate
+    if (!isObstacle(newPos, obstacles) &&
+        !validPositions.some(p => p[0] === newPos[0] && p[1] === newPos[1])) {
+      validPositions.push(newPos);
+    }
+  }
+
   for (let i = 0; i < AGENTS.length; i++) {
     const agentDef = AGENTS[i];
     const archetype = assignedArchetypes[agentDef.id];
     const charm = charmTypes[i];
-    const position = startingPositions[i];
+    const position = validPositions[i];
 
     gameState.agents[agentDef.id] = createAgent(agentDef, archetype, charm, position);
 
@@ -167,7 +196,8 @@ async function initGame() {
 
   emitEvent('game_start', {
     agents: gameState.agents,
-    zone: gameState.meta.zone
+    zone: gameState.meta.zone,
+    obstacles: gameState.obstacles
   });
 
   return gameState;

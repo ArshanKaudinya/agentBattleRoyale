@@ -22,7 +22,8 @@ function spawnDrop(gameState) {
   const pos = getRandomEmptyTileInZone(
     gameState.meta.zone,
     gameState.agents,
-    gameState.items
+    gameState.items,
+    gameState.obstacles
   );
 
   const item = {

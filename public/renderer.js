@@ -21,6 +21,7 @@ function render(state) {
   ctx.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
 
   renderGrid(state);
+  renderObstacles(state.obstacles);
   renderItems(state);
   renderAgents(state);
   renderEffects();
@@ -61,6 +62,72 @@ function renderGrid(state) {
       }
     }
   }
+}
+
+function renderObstacles(obstacles) {
+  if (!obstacles || obstacles.length === 0) return;
+
+  for (const obs of obstacles) {
+    const px = obs[0] * CELL_SIZE;
+    const py = obs[1] * CELL_SIZE;
+
+    // Draw solid obstacle
+    ctx.fillStyle = '#64748b';
+    ctx.fillRect(px, py, CELL_SIZE, CELL_SIZE);
+
+    // Border for definition
+    ctx.strokeStyle = '#475569';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(px, py, CELL_SIZE, CELL_SIZE);
+
+    // Cross-hatch pattern
+    ctx.strokeStyle = '#475569';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(px, py);
+    ctx.lineTo(px + CELL_SIZE, py + CELL_SIZE);
+    ctx.moveTo(px + CELL_SIZE, py);
+    ctx.lineTo(px, py + CELL_SIZE);
+    ctx.stroke();
+  }
+}
+
+function renderObstaclePreview(obstacles) {
+  if (!ctx) return;
+
+  // Clear canvas
+  ctx.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
+
+  // Draw basic grid
+  for (let y = 0; y < GRID_SIZE; y++) {
+    for (let x = 0; x < GRID_SIZE; x++) {
+      const px = x * CELL_SIZE;
+      const py = y * CELL_SIZE;
+
+      ctx.fillStyle = '#1a1a1a';
+      ctx.fillRect(px, py, CELL_SIZE, CELL_SIZE);
+
+      ctx.strokeStyle = '#333333';
+      ctx.lineWidth = 0.5;
+      ctx.strokeRect(px, py, CELL_SIZE, CELL_SIZE);
+    }
+  }
+
+  // Draw obstacles
+  renderObstacles(obstacles);
+
+  // Draw zone preview (faint)
+  ctx.strokeStyle = 'rgba(255, 60, 60, 0.3)';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.arc(
+    16 * CELL_SIZE + CELL_SIZE / 2,
+    16 * CELL_SIZE + CELL_SIZE / 2,
+    12 * CELL_SIZE,
+    0,
+    Math.PI * 2
+  );
+  ctx.stroke();
 }
 
 function renderAgents(state) {
@@ -396,5 +463,7 @@ window.RENDERER = {
   addDamageEffect,
   addHealEffect,
   addExplosionEffect,
-  showSpeechBubble
+  showSpeechBubble,
+  renderObstacles,
+  renderObstaclePreview
 };

@@ -24,7 +24,21 @@ app.post('/api/start', async (req, res) => {
   }
 
   try {
-    gameState = await initGame();
+    // Extract and validate obstacles
+    const obstacles = req.body.obstacles || [];
+
+    if (obstacles.length > 20) {
+      return res.status(400).json({ error: 'Maximum 20 obstacles allowed' });
+    }
+
+    for (const obs of obstacles) {
+      if (!Array.isArray(obs) || obs.length !== 2 ||
+          obs[0] < 0 || obs[0] >= 32 || obs[1] < 0 || obs[1] >= 32) {
+        return res.status(400).json({ error: 'Invalid obstacle coordinates' });
+      }
+    }
+
+    gameState = await initGame(obstacles);
     res.json({ status: 'started', agents: gameState.agents });
 
     // Run game loop in background

@@ -4,11 +4,18 @@ let currentState = null;
 let eventSource = null;
 let gamePhase = 'waiting';
 let lastActionEvents = []; // Store events from last action for damage display
+let obstacleMode = false;
+let obstacles = [];
+const MAX_OBSTACLES = 20;
 
 // DOM elements
 const startBtn = document.getElementById('start-btn');
 const resetBtn = document.getElementById('reset-btn');
 const themeToggle = document.getElementById('theme-toggle');
+const obstacleModeBtn = document.getElementById('obstacle-mode-btn');
+const obstacleCounter = document.getElementById('obstacle-counter');
+const obstacleCount = document.getElementById('obstacle-count');
+const arenaCanvas = document.getElementById('arena-canvas');
 const turnDisplay = document.getElementById('turn-display');
 const zoneDisplay = document.getElementById('zone-display');
 const statusText = document.getElementById('status-text');
@@ -28,12 +35,17 @@ document.addEventListener('DOMContentLoaded', () => {
   startBtn.addEventListener('click', startGame);
   resetBtn.addEventListener('click', resetGame);
   themeToggle.addEventListener('click', toggleTheme);
+  obstacleModeBtn.addEventListener('click', toggleObstacleMode);
+  arenaCanvas.addEventListener('click', handleCanvasClick);
 
-  // Load theme preference
+  // Default to light theme
   const savedTheme = localStorage.getItem('theme');
-  if (savedTheme === 'light') {
+  if (savedTheme !== 'dark') {
     document.body.classList.add('light-theme');
     themeToggle.innerHTML = '<i class="fa-solid fa-moon"></i>';
+    if (!savedTheme) localStorage.setItem('theme', 'light');
+  } else {
+    themeToggle.innerHTML = '<i class="fa-regular fa-sun"></i>';
   }
 
   fetchState();
@@ -47,6 +59,73 @@ function toggleTheme() {
     ? '<i class="fa-solid fa-moon"></i>'
     : '<i class="fa-regular fa-sun"></i>';
   localStorage.setItem('theme', isLight ? 'light' : 'dark');
+}
+
+// Obstacle Mode
+function toggleObstacleMode() {
+  if (gamePhase !== 'waiting') {
+    alert('Cannot place obstacles during an active game. Reset first.');
+    return;
+  }
+
+  obstacleMode = !obstacleMode;
+
+  if (obstacleMode) {
+    obstacleModeBtn.classList.add('active');
+    obstacleModeBtn.innerHTML = '<i class="fa-solid fa-times"></i> Cancel Obstacles';
+    obstacleCounter.style.display = 'block';
+    statusText.textContent = 'Click canvas to place/remove obstacles';
+    arenaCanvas.style.cursor = 'crosshair';
+  } else {
+    obstacleModeBtn.classList.remove('active');
+    obstacleModeBtn.innerHTML = '<i class="fa-solid fa-chess-board"></i> Place Obstacles';
+    obstacleCounter.style.display = 'none';
+    statusText.textContent = 'Ready';
+    arenaCanvas.style.cursor = 'default';
+  }
+
+  // Render obstacle preview
+  window.RENDERER.renderObstaclePreview(obstacles);
+}
+
+function handleCanvasClick(event) {
+  if (!obstacleMode || gamePhase !== 'waiting') return;
+
+  // Get click coordinates relative to canvas
+  const rect = arenaCanvas.getBoundingClientRect();
+  const x = event.clientX - rect.left;
+  const y = event.clientY - rect.top;
+
+  // Convert to grid coordinates (CELL_SIZE = 18)
+  const CELL_SIZE = 18;
+  const gridX = Math.floor(x / CELL_SIZE);
+  const gridY = Math.floor(y / CELL_SIZE);
+
+  // Validate coordinates
+  if (gridX < 0 || gridX >= 32 || gridY < 0 || gridY >= 32) return;
+
+  // Check if obstacle already exists at this position
+  const existingIndex = obstacles.findIndex(
+    obs => obs[0] === gridX && obs[1] === gridY
+  );
+
+  if (existingIndex !== -1) {
+    // Remove obstacle (toggle off)
+    obstacles.splice(existingIndex, 1);
+  } else {
+    // Add obstacle
+    if (obstacles.length >= MAX_OBSTACLES) {
+      alert(`Maximum ${MAX_OBSTACLES} obstacles allowed`);
+      return;
+    }
+    obstacles.push([gridX, gridY]);
+  }
+
+  // Update counter
+  obstacleCount.textContent = obstacles.length;
+
+  // Re-render
+  window.RENDERER.renderObstaclePreview(obstacles);
 }
 
 // Helper to highlight agent names with their colors
@@ -72,6 +151,10 @@ function connectSSE() {
 
   eventSource.addEventListener('state_sync', (e) => {
     currentState = JSON.parse(e.data);
+    if (currentState.obstacles) {
+      obstacles = currentState.obstacles;
+      obstacleCount.textContent = obstacles.length;
+    }
     updateUI(currentState);
   });
 
@@ -94,9 +177,11 @@ function connectSSE() {
       meta: { phase: 'running', turn: 1, zone: data.zone },
       agents: data.agents,
       items: [],
+      obstacles: data.obstacles || obstacles,
       combat_log: []
     };
     statusText.textContent = 'Battle in progress';
+    startBtn.textContent = 'Start Battle';
     updateAgentCards(data.agents);
     window.RENDERER.startAnimationLoop(() => currentState);
     addLogEntry('system', 'BATTLE START - All agents deployed');
@@ -582,30 +667,73 @@ function drawSpriteToCtx(ctx, sprite, x, y, width, height) {
 // Game controls
 async function startGame() {
   startBtn.disabled = true;
+  startBtn.textContent = 'Starting...';
+  statusText.textContent = 'Initializing';
   victoryOverlay.classList.remove('visible');
   combatLog.innerHTML = '';
   liveFeed.innerHTML = '';
 
+  // Turn off obstacle mode when starting
+  if (obstacleMode) {
+    toggleObstacleMode();
+  }
+
   try {
-    const res = await fetch('/api/start', { method: 'POST' });
+    const res = await fetch('/api/start', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ obstacles })
+    });
     const data = await res.json();
 
     if (data.error) {
       addLogEntry('system', `Error: ${data.error}`);
       startBtn.disabled = false;
+      startBtn.textContent = 'Start Battle';
+      statusText.textContent = 'Error';
     }
   } catch (err) {
     addLogEntry('system', `Failed to start: ${err.message}`);
     startBtn.disabled = false;
+    startBtn.textContent = 'Start Battle';
+    statusText.textContent = 'Error';
   }
 }
 
 async function resetGame() {
   try {
+    // Disable reset button to prevent multiple clicks
+    resetBtn.disabled = true;
+    statusText.textContent = 'Resetting...';
+
+    // Stop animation loop first
+    window.RENDERER.stopAnimationLoop();
+
+    // Close existing SSE connection
+    if (eventSource) {
+      eventSource.close();
+      eventSource = null;
+    }
+
+    // Call backend reset and wait for it
     await fetch('/api/reset', { method: 'POST' });
+
+    // Wait a bit for backend to fully stop
+    await new Promise(resolve => setTimeout(resolve, 300));
+
+    // Clear all state
     currentState = null;
     gamePhase = 'waiting';
+    lastActionEvents = [];
+    obstacles = [];
+    obstacleCount.textContent = '0';
+    if (obstacleMode) {
+      toggleObstacleMode();
+    }
+
+    // Clear UI
     statusText.textContent = 'Ready';
+    startBtn.textContent = 'Start Battle';
     turnDisplay.textContent = '0';
     zoneDisplay.textContent = '12';
     agentCardsContainer.innerHTML = '';
@@ -614,13 +742,19 @@ async function resetGame() {
     trashTalk.innerHTML = '';
     commentaryFeed.innerHTML = '';
     killFeed.innerHTML = '';
-    startBtn.disabled = false;
     victoryOverlay.classList.remove('visible');
-    window.RENDERER.stopAnimationLoop();
     window.RENDERER.clearCanvas();
+
+    // Re-enable buttons
+    startBtn.disabled = false;
+    resetBtn.disabled = false;
+
+    // Reconnect SSE
     connectSSE();
   } catch (err) {
     console.error('Reset error:', err);
+    statusText.textContent = 'Reset failed';
+    resetBtn.disabled = false;
   }
 }
 

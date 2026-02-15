@@ -1,4 +1,4 @@
-const { calculatePosition, isValidPosition, isOccupied, getDistance, getAdjacentPositions } = require('./grid');
+const { calculatePosition, isValidPosition, isOccupied, isObstacle, getDistance, getAdjacentPositions } = require('./grid');
 const { activateCharm } = require('./charms');
 const { applyItem, removeItemAt, getItemAt } = require('./spawns');
 const { GRID_SIZE } = require('./constants');
@@ -18,7 +18,7 @@ function executeAction(agentId, action, gameState) {
         const tp = action.params.teleport_to;
         if (agent.charm && agent.charm.type === 'teleport' && agent.charm.uses_left > 0) {
           const dist = getDistance(agent.position, tp);
-          if (dist <= 8 && isValidPosition(tp) && !isOccupied(tp, gameState.agents)) {
+          if (dist <= 8 && isValidPosition(tp) && !isOccupied(tp, gameState.agents) && !isObstacle(tp, gameState.obstacles)) {
             agent.position = tp;
             agent.charm.uses_left--;
             events.push({
@@ -43,7 +43,7 @@ function executeAction(agentId, action, gameState) {
 
         targetPos = calculatePosition(agent.position, direction, tiles);
 
-        if (targetPos && isValidPosition(targetPos) && !isOccupied(targetPos, gameState.agents)) {
+        if (targetPos && isValidPosition(targetPos) && !isOccupied(targetPos, gameState.agents) && !isObstacle(targetPos, gameState.obstacles)) {
           const oldPos = [...agent.position];
           agent.position = targetPos;
           events.push({

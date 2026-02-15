@@ -33,13 +33,18 @@
   <div class="controls">
     <button class="btn btn-start" id="start-btn">Start Battle</button>
     <button class="btn btn-reset" id="reset-btn">Reset</button>
-    <button class="btn btn-export">Export Replay</button>
+    <button class="btn btn-obstacle-mode" id="obstacle-mode-btn">
+      <i class="fa-solid fa-chess-board"></i> Place Obstacles
+    </button>
+    <div class="obstacle-counter" id="obstacle-counter" style="display: none;">
+      <span id="obstacle-count">0</span>/20 placed
+    </div>
     <div class="status-indicator" id="status-indicator">
       <span class="status-dot"></span>
       <span class="status-text" id="status-text">Ready</span>
     </div>
     <button class="theme-toggle" id="theme-toggle" title="Toggle theme">
-      <i class="fa-regular fa-sun"></i>
+      <i class="fa-solid fa-moon"></i>
     </button>
   </div>
 

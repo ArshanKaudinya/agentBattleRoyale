@@ -122,6 +122,26 @@ Status: ${inZone ? 'INSIDE the safe zone' : '!!! OUTSIDE ZONE - taking 5 damage/
 Navigation: ${directionGuidance}
 ${distToCenter > zone.radius ? '⚠️ WARNING: Zone will shrink - you need to move toward center NOW!' : ''}`;
 
+  // Obstacles
+  if (gameState.obstacles && gameState.obstacles.length > 0) {
+    prompt += `\n\n=== OBSTACLES ===\n`;
+    prompt += `${gameState.obstacles.length} immovable obstacles on the battlefield.\n`;
+
+    // Show nearby obstacles (within 5 tiles)
+    const nearbyObstacles = gameState.obstacles.filter(obs =>
+      getDistance(agent.position, obs) <= 5
+    );
+
+    if (nearbyObstacles.length > 0) {
+      prompt += `Nearby obstacles (within 5 tiles):\n`;
+      for (const obs of nearbyObstacles) {
+        const dist = getDistance(agent.position, obs);
+        prompt += `  - Obstacle at [${obs[0]}, ${obs[1]}] - ${dist} tiles away\n`;
+      }
+      prompt += `Note: You CANNOT move onto obstacles. Plan your path carefully.\n`;
+    }
+  }
+
   // Items - MOVED UP and made more prominent
   if (gameState.items.length > 0) {
     prompt += `\n\n=== ⭐ POWER-UPS AVAILABLE ⭐ ===\n`;

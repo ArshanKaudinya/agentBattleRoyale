@@ -19,6 +19,11 @@ function isOccupied(pos, agents) {
   );
 }
 
+function isObstacle(pos, obstacles) {
+  if (!obstacles) return false;
+  return obstacles.some(obs => obs[0] === pos[0] && obs[1] === pos[1]);
+}
+
 function getDistance(a, b) {
   // Manhattan distance for game mechanics (movement, attack range)
   return Math.abs(a[0] - b[0]) + Math.abs(a[1] - b[1]);
@@ -33,7 +38,7 @@ function isInZone(pos, zone) {
   return getEuclideanDistance(pos, zone.center) <= zone.radius;
 }
 
-function getRandomEmptyTileInZone(zone, agents, items) {
+function getRandomEmptyTileInZone(zone, agents, items, obstacles) {
   const maxAttempts = 100;
   for (let i = 0; i < maxAttempts; i++) {
     const x = Math.floor(Math.random() * GRID_SIZE);
@@ -43,6 +48,7 @@ function getRandomEmptyTileInZone(zone, agents, items) {
     if (!isInZone(pos, zone)) continue;
     if (isOccupied(pos, agents)) continue;
     if (items.some(item => item.position[0] === x && item.position[1] === y)) continue;
+    if (isObstacle(pos, obstacles)) continue;
 
     return pos;
   }
@@ -66,6 +72,7 @@ module.exports = {
   calculatePosition,
   isValidPosition,
   isOccupied,
+  isObstacle,
   getDistance,
   getEuclideanDistance,
   isInZone,
