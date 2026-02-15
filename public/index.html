@@ -3,71 +3,99 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Agent Battle Royale</title>
+  <title>AI Battle Royale - Research Dashboard</title>
+  <link href="https://api.fontshare.com/v2/css?f[]=satoshi@400,401&f[]=clash-grotesk@400,600&f[]=cabinet-grotesk@400,900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <!-- Header -->
-  <div class="header">
-    <h1 class="title">AGENT BATTLE ROYALE</h1>
-    <div class="header-stats">
-      <div class="stat-box">
-        <span class="stat-label">Turn</span>
-        <span class="stat-value" id="turn-display">0</span>
+  <header class="header">
+    <div class="header-left">
+      <h1 class="header-title">AI BATTLE ROYALE</h1>
+      <p class="header-subtitle">Watch how agents think through high-risk survival</p>
+    </div>
+    <div class="header-right">
+      <div class="turn-info">
+        <span class="turn-label">Turn</span>
+        <span class="turn-value" id="turn-display">0</span>
+        <span class="turn-separator">/</span>
+        <span class="turn-max">50</span>
       </div>
-      <div class="stat-box">
-        <span class="stat-label">Zone</span>
-        <span class="stat-value" id="zone-display">16</span>
-      </div>
-      <div class="stat-box">
-        <span id="phase-display" class="phase-badge waiting">WAITING</span>
+      <div class="zone-info">
+        <span class="zone-label">Zone Radius</span>
+        <span class="zone-value" id="zone-display">12</span>
       </div>
     </div>
-  </div>
+  </header>
 
   <!-- Controls -->
   <div class="controls">
-    <button class="btn btn-start" id="start-btn">START BATTLE</button>
-    <button class="btn btn-reset" id="reset-btn">RESET</button>
-  </div>
-
-  <!-- Game Area -->
-  <div class="game-layout">
-    <!-- Left sidebar: agents 1 & 2 -->
-    <div class="sidebar" id="sidebar-left"></div>
-
-    <!-- Arena -->
-    <div class="arena-container">
-      <canvas id="arena-canvas"></canvas>
+    <button class="btn btn-start" id="start-btn">Start Battle</button>
+    <button class="btn btn-reset" id="reset-btn">Reset</button>
+    <button class="btn btn-export">Export Replay</button>
+    <div class="status-indicator" id="status-indicator">
+      <span class="status-dot"></span>
+      <span class="status-text" id="status-text">Ready</span>
     </div>
-
-    <!-- Right sidebar: agents 3 & 4 -->
-    <div class="sidebar" id="sidebar-right"></div>
+    <button class="theme-toggle" id="theme-toggle" title="Toggle theme">
+      <i class="fa-regular fa-sun"></i>
+    </button>
   </div>
 
-  <!-- Agent Cards (populated dynamically, used as template container) -->
-  <div id="agent-cards" style="display: none;"></div>
+  <!-- Main 3-column layout -->
+  <div class="main-container">
+    <!-- Left Sidebar: Agent Cards -->
+    <aside class="sidebar sidebar-left">
+      <div class="sidebar-header">AGENTS</div>
+      <div id="agent-cards-container"></div>
+    </aside>
 
-  <!-- Combat Log -->
-  <div class="log-container">
-    <div class="log-header">COMBAT LOG</div>
-    <div id="combat-log"></div>
+    <!-- Center: Battlefield -->
+    <main class="battlefield-container">
+      <div class="battlefield-header">BATTLEFIELD</div>
+      <div class="canvas-wrapper">
+        <canvas id="arena-canvas"></canvas>
+      </div>
+    </main>
+
+    <!-- Trash Talk Column -->
+    <aside class="sidebar sidebar-trash">
+      <div class="sidebar-header">
+        <i class="fa-solid fa-message"></i> TRASH TALK
+      </div>
+      <div id="trash-talk" class="trash-talk"></div>
+    </aside>
+
+    <!-- Right Sidebar: Live Feed -->
+    <aside class="sidebar sidebar-right">
+      <div class="sidebar-header">
+        <i class="fa-solid fa-comments"></i> AGENT THOUGHTS
+      </div>
+      <div id="live-feed" class="live-feed"></div>
+    </aside>
   </div>
 
-  <!-- Kill Feed Overlay -->
-  <div id="kill-feed"></div>
+  <!-- Bottom: Combat Log -->
+  <div class="combat-log-panel">
+    <div class="panel-header">COMBAT LOG</div>
+    <div id="combat-log" class="combat-log-content"></div>
+  </div>
 
-  <!-- Victory Overlay -->
-  <div id="victory-overlay">
-    <div class="victory-content">
-      <div class="victory-title">VICTORY!</div>
-      <canvas id="victory-sprite"></canvas>
-      <div id="victory-name"></div>
-      <div id="victory-archetype"></div>
-      <div id="victory-stats"></div>
-      <button class="victory-close" onclick="document.getElementById('victory-overlay').classList.remove('visible')">CLOSE</button>
+  <!-- Victory Modal -->
+  <div id="victory-overlay" class="victory-overlay">
+    <div class="victory-modal">
+      <div class="victory-header">VICTORY</div>
+      <canvas id="victory-sprite" class="victory-sprite"></canvas>
+      <div id="victory-name" class="victory-name"></div>
+      <div id="victory-archetype" class="victory-archetype"></div>
+      <div id="victory-stats" class="victory-stats"></div>
+      <button class="btn btn-close-victory" onclick="document.getElementById('victory-overlay').classList.remove('visible')">Close</button>
     </div>
   </div>
+
+  <!-- Kill Feed -->
+  <div id="kill-feed" class="kill-feed"></div>
 
   <!-- Scripts -->
   <script src="pixels.js"></script>

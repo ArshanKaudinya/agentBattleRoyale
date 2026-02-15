@@ -10,7 +10,7 @@ Built for **Build India '26** with Claude. Hosted on Replit.
 |-------|-------|----------|
 | GPT-4 | gpt-4o | OpenAI |
 | Claude | claude-sonnet-4 | Anthropic |
-| Gemini | gemini-2.0-flash | Google |
+| Haiku | claude-haiku-4-5 | Anthropic |
 | GPT-Mini | gpt-4o-mini | OpenAI |
 
 Each agent picks an archetype (Berserker, Tank, Scout, Mage), gets a random charm, and fights using LLM-driven decisions every turn.
@@ -26,7 +26,6 @@ Create a `.env` file:
 ```
 OPENAI_API_KEY=your_key
 ANTHROPIC_API_KEY=your_key
-GOOGLE_API_KEY=your_key
 ```
 
 ## Run

@@ -3,40 +3,52 @@ const { LLM_TIMEOUT } = require('../game/constants');
 const providers = {
   gpt: require('./openai'),
   claude: require('./anthropic'),
-  gemini: require('./google'),
+  haiku: require('./anthropic-haiku'),
   mini: require('./openai-mini')
 };
 
+function stripCodeBlock(raw) {
+  // Remove ```json ... ``` or ``` ... ``` wrappers
+  const codeBlockMatch = raw.match(/```(?:json)?\s*([\s\S]*?)```/);
+  return codeBlockMatch ? codeBlockMatch[1].trim() : raw.trim();
+}
+
+function extractOuterJson(text) {
+  // Find the outermost balanced { ... } in the text
+  const start = text.indexOf('{');
+  if (start === -1) return null;
+
+  let depth = 0;
+  for (let i = start; i < text.length; i++) {
+    if (text[i] === '{') depth++;
+    else if (text[i] === '}') {
+      depth--;
+      if (depth === 0) return text.substring(start, i + 1);
+    }
+  }
+  return null;
+}
+
 function parseAction(raw) {
-  // Try direct parse
+  // Step 1: Strip markdown code blocks
+  const cleaned = stripCodeBlock(raw);
+
+  // Step 2: Try direct parse
   try {
-    const parsed = JSON.parse(raw);
+    const parsed = JSON.parse(cleaned);
     if (isValidAction(parsed)) return parsed;
   } catch (e) {
-    // Continue to regex extraction
+    // Continue to extraction
   }
 
-  // Try extracting JSON from markdown code blocks or text
-  const jsonMatch = raw.match(/\{[\s\S]*?\}/);
-  if (jsonMatch) {
+  // Step 3: Extract outermost balanced JSON object
+  const jsonStr = extractOuterJson(cleaned);
+  if (jsonStr) {
     try {
-      const parsed = JSON.parse(jsonMatch[0]);
+      const parsed = JSON.parse(jsonStr);
       if (isValidAction(parsed)) return parsed;
     } catch (e) {
       // Fall through
-    }
-  }
-
-  // Try more aggressive extraction (find the last complete JSON object)
-  const allMatches = raw.match(/\{[^{}]*\}/g);
-  if (allMatches) {
-    for (const match of allMatches) {
-      try {
-        const parsed = JSON.parse(match);
-        if (isValidAction(parsed)) return parsed;
-      } catch (e) {
-        continue;
-      }
     }
   }
 
@@ -63,17 +75,19 @@ function isValidAction(parsed) {
 }
 
 function parseArchetypeChoice(raw) {
+  const cleaned = stripCodeBlock(raw);
+
   try {
-    const parsed = JSON.parse(raw);
+    const parsed = JSON.parse(cleaned);
     if (parsed.archetype) return parsed;
   } catch (e) {
     // Try extraction
   }
 
-  const jsonMatch = raw.match(/\{[\s\S]*?\}/);
-  if (jsonMatch) {
+  const jsonStr = extractOuterJson(cleaned);
+  if (jsonStr) {
     try {
-      const parsed = JSON.parse(jsonMatch[0]);
+      const parsed = JSON.parse(jsonStr);
       if (parsed.archetype) return parsed;
     } catch (e) {
       // Fall through
@@ -123,7 +137,7 @@ async function getAgentAction(agentId, prompt) {
     const parsed = parseAction(raw);
 
     if (!parsed) {
-      console.warn(`[${agentId}] Could not parse response:`, raw.substring(0, 200));
+      console.warn(`[${agentId}] Could not parse response:`, raw.substring(0, 500));
       return {
         agentId,
         raw,

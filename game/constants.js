@@ -2,27 +2,36 @@ const GRID_SIZE = 32;
 const MAX_TURNS = 50;
 const ZONE_SHRINK_INTERVAL = 8;
 const ZONE_SHRINK_AMOUNT = 2;
-const ZONE_DAMAGE = 10;
+const ZONE_DAMAGE = 5;
 const SPAWN_INTERVAL = 3;
-const LLM_TIMEOUT = 10000;
+const LLM_TIMEOUT = 15000;
 const TURN_DELAY_MS = 2000;
 
 const ZONE_INITIAL = {
   center: [16, 16],
-  radius: 16
+  radius: 12
 };
 
-const STARTING_POSITIONS = [
-  [2, 2],
-  [2, 29],
-  [29, 2],
-  [29, 29]
-];
-
+// Random positions within radius 10 of center — all agents start inside zone
+function generateStartingPositions() {
+  const positions = [];
+  const center = [16, 16];
+  while (positions.length < 4) {
+    const x = center[0] + Math.floor(Math.random() * 21) - 10;
+    const y = center[1] + Math.floor(Math.random() * 21) - 10;
+    if (x < 1 || x > 30 || y < 1 || y > 30) continue;
+    const occupied = positions.some(p => p[0] === x && p[1] === y);
+    if (occupied) continue;
+    const dist = Math.sqrt((x - center[0]) ** 2 + (y - center[1]) ** 2);
+    if (dist > 10) continue;
+    positions.push([x, y]);
+  }
+  return positions;
+}
 const AGENTS = [
   { id: 'gpt', name: 'GPT-4', model: 'gpt-4', color: '#10a37f' },
   { id: 'claude', name: 'Claude', model: 'claude', color: '#d4886f' },
-  { id: 'gemini', name: 'Gemini', model: 'gemini', color: '#4285f4' },
+  { id: 'haiku', name: 'Haiku', model: 'claude-haiku-4-5', color: '#4285f4' },
   { id: 'mini', name: 'GPT-Mini', model: 'gpt-4o-mini', color: '#9333ea' }
 ];
 
@@ -43,7 +52,7 @@ module.exports = {
   LLM_TIMEOUT,
   TURN_DELAY_MS,
   ZONE_INITIAL,
-  STARTING_POSITIONS,
+  generateStartingPositions,
   AGENTS,
   DIRECTIONS
 };

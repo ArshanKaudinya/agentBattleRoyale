@@ -13,7 +13,6 @@ async function getAction(prompt) {
   const response = await getClient().chat.completions.create({
     model: 'gpt-4o-mini',
     messages: [{ role: 'user', content: prompt }],
-    max_tokens: 300,
     temperature: 0.7
   });
   return response.choices[0].message.content;

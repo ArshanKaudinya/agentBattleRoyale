@@ -7,7 +7,7 @@ const _ = null; // transparent
 const AGENT_COLORS = {
   gpt:    { body: '#10a37f', dark: '#0b7a5e', light: '#14d4a2', eye: '#ffffff' },
   claude: { body: '#d4886f', dark: '#a8654e', light: '#e8a68f', eye: '#ffffff' },
-  gemini: { body: '#4285f4', dark: '#2b5ec2', light: '#6ba3ff', eye: '#ffffff' },
+  haiku:  { body: '#a0a0a0', dark: '#707070', light: '#c0c0c0', eye: '#ffffff' },
   mini:   { body: '#9333ea', dark: '#6b21b0', light: '#b366ff', eye: '#ffffff' }
 };
 

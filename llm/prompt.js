@@ -2,13 +2,6 @@ const { getDistance, isInZone } = require('../game/grid');
 const { ARCHETYPES } = require('../game/archetypes');
 const { CHARMS } = require('../game/charms');
 
-const PERSONALITIES = {
-  gpt: 'You are a calculating strategist. You analyze probability, optimize expected value, and make the mathematically optimal play. You think several moves ahead.',
-  claude: 'You are a thoughtful tactician. You consider the broader situation, adapt to changing circumstances, and balance aggression with caution. You look for the smart play.',
-  gemini: 'You are a creative improviser. You look for unexpected plays, clever combos, and unconventional strategies. You like to surprise your opponents.',
-  mini: 'You are a bold fighter. You favor aggression, decisive action, and calculated risks. You believe the best defense is a good offense.'
-};
-
 const ARCHETYPE_TIPS = {
   berserker: 'Your charge attack hits HARD (12 damage at range 3) but costs 10 HP to yourself. Use it to finish off weakened enemies. Your melee is solid at 9 damage with no cooldown. You thrive in all-in fights.',
   tank: 'You have the most HP (150) and highest defense (8). Your slam hits ALL adjacent enemies for 8 damage. Play the long game - you outlast everyone. Move toward the center and let others fight.',
@@ -17,11 +10,7 @@ const ARCHETYPE_TIPS = {
 };
 
 function buildArchetypeSelectionPrompt(agentId, agentName) {
-  const personality = PERSONALITIES[agentId] || '';
-
-  let prompt = `${personality}
-
-You are ${agentName} entering a battle royale against 3 other AI agents on a 32x32 grid. Before the fight begins, you must choose your archetype.
+  let prompt = `You are ${agentName} entering a battle royale against 3 other AI agents on a 32x32 grid. Before the fight begins, you must choose your archetype.
 
 === AVAILABLE ARCHETYPES ===
 
@@ -52,20 +41,32 @@ Respond with ONLY this JSON:
 }
 
 function buildTurnPrompt(agent, gameState) {
-  const personality = PERSONALITIES[agent.id] || '';
   const archTip = ARCHETYPE_TIPS[agent.archetype] || '';
   const zone = gameState.meta.zone;
   const inZone = isInZone(agent.position, zone);
   const turnsUntilShrink = gameState.meta.zone.next_shrink_turn - gameState.meta.turn;
 
-  let prompt = `${personality}
+  // Calculate distance and direction to center
+  const dx = zone.center[0] - agent.position[0];
+  const dy = zone.center[1] - agent.position[1];
+  const distToCenter = Math.sqrt(dx * dx + dy * dy);
 
-You are a ${ARCHETYPES[agent.archetype].name} in an AI battle royale. Goal: be the last one standing.
+  // Determine which direction(s) to move toward center
+  let moveDirections = [];
+  if (dy < -1) moveDirections.push('NORTH');
+  if (dy > 1) moveDirections.push('SOUTH');
+  if (dx > 1) moveDirections.push('EAST');
+  if (dx < -1) moveDirections.push('WEST');
+  const directionGuidance = moveDirections.length > 0
+    ? `To reach center: move ${moveDirections.join(' then ')} (${Math.round(distToCenter)} tiles away)`
+    : 'You are AT the center';
+
+  let prompt = `You are a ${ARCHETYPES[agent.archetype].name} in an AI battle royale. Goal: be the last one standing.
 
 === YOUR STATUS ===
 Health: ${agent.health}/${agent.max_health}${agent.health <= agent.max_health * 0.3 ? ' *** CRITICAL! ***' : agent.health <= agent.max_health * 0.5 ? ' * LOW *' : ''}
 Position: [${agent.position[0]}, ${agent.position[1]}]
-Stats: Attack ${agent.stats.attack} | Defense ${agent.stats.defense} | Speed ${agent.stats.speed + agent.speed_bonus}
+Stats: Attack ${agent.stats.attack} | Defense ${agent.stats.defense} | Speed ${agent.stats.speed + agent.speed_bonus} (can move ${agent.stats.speed + agent.speed_bonus} tiles/turn)
 `;
 
   // Charm
@@ -96,17 +97,59 @@ Stats: Attack ${agent.stats.attack} | Defense ${agent.stats.defense} | Speed ${a
   if (agent.is_defending) prompt += `  - Defending: 70% damage reduction this turn\n`;
   if (agent.has_reversal_active) prompt += `  - Reversal: ACTIVE (next hit reflects back)\n`;
 
-  // Battlefield
+  // Zone warning — placed early so models prioritize it
+  if (!inZone) {
+    prompt += `
+!!! CRITICAL: YOU ARE OUTSIDE THE SAFE ZONE !!!
+You lose 5 HP EVERY TURN outside the zone. This WILL kill you.
+PRIORITY #1: ${directionGuidance}
+Do NOT attack or defend — you MUST move toward the center to survive.
+`;
+  }
+
+  // Battlefield with clear navigation
   prompt += `
 === BATTLEFIELD ===
 Turn: ${gameState.meta.turn}/${50}
-Zone: Center [${zone.center[0]}, ${zone.center[1]}], Radius ${zone.radius}`;
+Zone: Center at [${zone.center[0]}, ${zone.center[1]}], Radius ${zone.radius}`;
 
   if (turnsUntilShrink <= 3 && turnsUntilShrink > 0) {
     prompt += ` *** SHRINKS IN ${turnsUntilShrink} TURNS! ***`;
   }
 
-  prompt += `\nYou are ${inZone ? 'INSIDE the safe zone' : 'OUTSIDE THE ZONE! You take 10 damage per turn! GET INSIDE!'}`;
+  prompt += `
+Status: ${inZone ? 'INSIDE the safe zone' : '!!! OUTSIDE ZONE - taking 5 damage/turn !!!'}
+Navigation: ${directionGuidance}
+${distToCenter > zone.radius ? '⚠️ WARNING: Zone will shrink - you need to move toward center NOW!' : ''}`;
+
+  // Items - MOVED UP and made more prominent
+  if (gameState.items.length > 0) {
+    prompt += `\n\n=== ⭐ POWER-UPS AVAILABLE ⭐ ===\n`;
+    const sortedItems = gameState.items
+      .map(item => ({
+        ...item,
+        dist: getDistance(agent.position, item.position),
+        canReach: getDistance(agent.position, item.position) <= agent.stats.speed + agent.speed_bonus
+      }))
+      .sort((a, b) => a.dist - b.dist);
+
+    for (const item of sortedItems) {
+      const benefits = {
+        health_pack: '+30 HP (HEAL)',
+        damage_amp: '+3 Attack for 5 turns (MASSIVE DAMAGE BOOST)',
+        speed_boost: '+2 Speed for 5 turns (MOBILITY)',
+        shield_token: 'Blocks next hit completely (SURVIVAL)'
+      };
+      const benefit = benefits[item.type] || 'Power-up';
+      prompt += `- ${item.type.replace('_', ' ').toUpperCase()} at [${item.position[0]}, ${item.position[1]}] - ${item.dist} tiles away`;
+      if (item.canReach) {
+        prompt += ` ✓ YOU CAN GRAB THIS NOW! - ${benefit}`;
+      } else {
+        prompt += ` (${benefit})`;
+      }
+      prompt += '\n';
+    }
+  }
 
   // Opponents
   prompt += `\n\n=== OPPONENTS ===\n`;
@@ -146,16 +189,6 @@ Zone: Center [${zone.center[0]}, ${zone.center[1]}], Radius ${zone.radius}`;
     prompt += `\nEliminated: ${deadOpponents.map(o => o.id).join(', ')}\n`;
   }
 
-  // Items
-  if (gameState.items.length > 0) {
-    prompt += `\n=== ITEMS ON GROUND ===\n`;
-    for (const item of gameState.items) {
-      const dist = getDistance(agent.position, item.position);
-      const canReach = dist <= agent.stats.speed + agent.speed_bonus;
-      prompt += `- ${item.type.replace('_', ' ')} at [${item.position[0]}, ${item.position[1]}] (${dist} tiles away${canReach ? ' - REACHABLE this turn!' : ''})\n`;
-    }
-  }
-
   // Abilities
   prompt += `\n=== YOUR ABILITIES ===\n`;
   for (const [name, atk] of Object.entries(agent.attacks)) {
@@ -188,23 +221,29 @@ Zone: Center [${zone.center[0]}, ${zone.center[1]}], Radius ${zone.radius}`;
   }
 
   // Strategy tips
-  prompt += `\n=== STRATEGY ===\n${archTip}\n`;
+  prompt += `\n=== STRATEGY ===\n${archTip}
 
-  if (!inZone) {
-    prompt += `URGENT: You are outside the zone! Move toward center [${zone.center[0]}, ${zone.center[1]}] immediately!\n`;
-  }
+CRITICAL REMINDERS:
+- Power-ups give HUGE advantages - grab them when safe!
+- Stay in the zone or you'll die from zone damage (5 HP/turn)
+- Your position is [${agent.position[0]}, ${agent.position[1]}] - zone center is [${zone.center[0]}, ${zone.center[1]}]
+- Each direction moves you 1 tile: north = -Y, south = +Y, east = +X, west = -X
+- You can move UP TO ${agent.stats.speed + agent.speed_bonus} tiles, but you can choose fewer if needed
+\n`;
 
   // Output format
   prompt += `
 OUTPUT JSON ONLY. Choose ONE action:
 
-Move: {"reasoning": "why", "action": "move", "params": {"direction": "north/south/east/west", "tiles": ${agent.stats.speed + agent.speed_bonus}}}
+Move: {"reasoning": "why", "action": "move", "params": {"direction": "north/south/east/west", "tiles": ${agent.stats.speed + agent.speed_bonus}}, "trash_talk": "optional short taunt"}
 
-Attack: {"reasoning": "why", "action": "attack", "params": {"target_id": "${aliveOpponents[0]?.id || 'opponent_id'}", "attack_type": "melee"}}
+Attack: {"reasoning": "why", "action": "attack", "params": {"target_id": "${aliveOpponents[0]?.id || 'opponent_id'}", "attack_type": "melee"}, "trash_talk": "optional short taunt"}
 
-Defend: {"reasoning": "why", "action": "defend"}
+Defend: {"reasoning": "why", "action": "defend", "trash_talk": "optional short taunt"}
 
-Use Charm: {"reasoning": "why", "action": "use_charm"}
+Use Charm: {"reasoning": "why", "action": "use_charm", "trash_talk": "optional short taunt"}
+
+NOTE: "trash_talk" is optional - only include if you want to taunt. Keep it brief (max 10 words).
 ${agent.charm && agent.charm.type === 'heal' && agent.charm.uses_left > 0 ? '\nFREE HEAL: Add "free_action": "use_charm" to any action to heal for free!' : ''}
 
 YOUR TURN:`;

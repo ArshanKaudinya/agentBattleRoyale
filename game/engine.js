@@ -1,7 +1,7 @@
 const {
   GRID_SIZE, MAX_TURNS, ZONE_SHRINK_INTERVAL, ZONE_SHRINK_AMOUNT,
   ZONE_DAMAGE, SPAWN_INTERVAL, TURN_DELAY_MS, ZONE_INITIAL,
-  STARTING_POSITIONS, AGENTS
+  generateStartingPositions, AGENTS
 } = require('./constants');
 const { ARCHETYPES } = require('./archetypes');
 const { CHARMS } = require('./charms');
@@ -143,12 +143,13 @@ async function initGame() {
   // Phase 2: Assign random charms
   const charmTypes = shuffleArray(['rage', 'teleport', 'heal', 'reversal']);
 
-  // Phase 3: Create agents
+  // Phase 3: Create agents at random positions inside zone
+  const startingPositions = generateStartingPositions();
   for (let i = 0; i < AGENTS.length; i++) {
     const agentDef = AGENTS[i];
     const archetype = assignedArchetypes[agentDef.id];
     const charm = charmTypes[i];
-    const position = STARTING_POSITIONS[i];
+    const position = startingPositions[i];
 
     gameState.agents[agentDef.id] = createAgent(agentDef, archetype, charm, position);
 
