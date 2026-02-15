@@ -3,7 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AI Battle Royale - Research Dashboard</title>
+  <title>AI Battle Royale</title>
+  <link rel="icon" type="image/png" href="/assets/logo.png">
   <link href="https://api.fontshare.com/v2/css?f[]=satoshi@400,401&f[]=clash-grotesk@400,600&f[]=cabinet-grotesk@400,900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
   <link rel="stylesheet" href="style.css">
@@ -43,6 +44,9 @@
       <span class="status-dot"></span>
       <span class="status-text" id="status-text">Ready</span>
     </div>
+    <button class="info-btn" id="info-btn" title="How It Works">
+      <i class="fa-solid fa-circle-info"></i>
+    </button>
     <button class="theme-toggle" id="theme-toggle" title="Toggle theme">
       <i class="fa-solid fa-moon"></i>
     </button>
@@ -101,7 +105,90 @@
       <div id="victory-name" class="victory-name"></div>
       <div id="victory-archetype" class="victory-archetype"></div>
       <div id="victory-stats" class="victory-stats"></div>
-      <button class="btn btn-close-victory" onclick="document.getElementById('victory-overlay').classList.remove('visible')">Close</button>
+
+      <!-- Match Statistics Table -->
+      <div class="match-stats-section">
+        <h3 class="stats-header">MATCH STATISTICS</h3>
+        <table class="match-stats-table">
+          <thead>
+            <tr>
+              <th>Agent</th>
+              <th>Damage</th>
+              <th>Kills</th>
+              <th>Items</th>
+              <th>Turns</th>
+            </tr>
+          </thead>
+          <tbody id="stats-table-body">
+            <!-- Populated by JavaScript -->
+          </tbody>
+        </table>
+      </div>
+
+      <!-- MVP Awards -->
+      <div class="mvp-awards-section">
+        <h3 class="stats-header">MVP AWARDS</h3>
+        <div class="mvp-awards">
+          <div class="mvp-card">
+            <div class="mvp-icon"><i class="fa-solid fa-sword"></i></div>
+            <div class="mvp-title">Damage King</div>
+            <div class="mvp-winner" id="damage-king-name">-</div>
+          </div>
+          <div class="mvp-card">
+            <div class="mvp-icon"><i class="fa-solid fa-heart"></i></div>
+            <div class="mvp-title">Survivor</div>
+            <div class="mvp-winner" id="survivor-name">-</div>
+          </div>
+          <div class="mvp-card">
+            <div class="mvp-icon"><i class="fa-solid fa-treasure-chest"></i></div>
+            <div class="mvp-title">Item Hoarder</div>
+            <div class="mvp-winner" id="item-hoarder-name">-</div>
+          </div>
+        </div>
+      </div>
+
+      <button class="btn btn-play-again" onclick="resetGame()">Play Again</button>
+    </div>
+  </div>
+
+  <!-- Info Modal -->
+  <div id="info-overlay" class="info-overlay">
+    <div class="info-modal">
+      <div class="info-header">How It Works</div>
+      <div class="info-content">
+        <div class="info-section">
+          <h4>The Concept</h4>
+          <p>GPT-4 and Claude fight to the death in real-time tactical combat. Every decision is visible. Response speed becomes gameplay — faster API calls act first.</p>
+        </div>
+
+        <div class="info-section">
+          <h4>Game Mechanics</h4>
+          <ul>
+            <li><strong>Turn-Based Combat:</strong> Agents decide simultaneously each turn based on identical game state</li>
+            <li><strong>Shrinking Zone:</strong> Zone shrinks every 8 turns, forcing confrontation and dealing 5 damage per turn to agents outside</li>
+            <li><strong>Items & Powerups:</strong> Items spawn every 3 turns creating contested objectives (health packs, damage amps, speed boosts, shields)</li>
+            <li><strong>Last Agent Standing:</strong> Battle ends when only one agent survives or turn 50 is reached</li>
+            <li><strong>Fastest First:</strong> Faster LLM response times act first — speed matters!</li>
+          </ul>
+        </div>
+
+        <div class="info-section">
+          <h4>What You're Watching</h4>
+          <ul>
+            <li><strong>Agent Reasoning:</strong> See their strategic thoughts in real-time as they analyze the battlefield</li>
+            <li><strong>Live Commentary:</strong> AI-generated play-by-play analysis of key moments</li>
+            <li><strong>Trash Talk:</strong> Contextual agent personality and taunts between competitors</li>
+            <li><strong>Combat Log:</strong> Complete action history with damage tracking and turn-by-turn events</li>
+            <li><strong>Thinking Indicators:</strong> Pulsing borders show which agents are currently "thinking" (waiting for LLM response)</li>
+          </ul>
+        </div>
+
+        <div class="info-section">
+          <h4>The Agents</h4>
+          <p>Four LLM models compete: <span style="color: #10a37f">GPT-4 (gpt-4o)</span>, <span style="color: #d97757">Claude (claude-sonnet-4)</span>, <span style="color: #a0a0a0">Haiku (claude-haiku-4.5)</span>, and <span style="color: #9333ea">GPT-Mini (gpt-4o-mini)</span>. Each chooses an archetype (Berserker, Tank, Scout, Mage) and receives a random charm ability.</p>
+        </div>
+      </div>
+      <button class="btn btn-close-info" id="close-info-btn">Got It</button>
     </div>
   </div>
 

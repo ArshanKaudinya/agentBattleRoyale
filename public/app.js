@@ -7,6 +7,7 @@ let lastActionEvents = []; // Store events from last action for damage display
 let obstacleMode = false;
 let obstacles = [];
 const MAX_OBSTACLES = 20;
+let thinkingAgents = new Set();
 
 // DOM elements
 const startBtn = document.getElementById('start-btn');
@@ -26,6 +27,9 @@ const liveFeed = document.getElementById('live-feed');
 const trashTalk = document.getElementById('trash-talk');
 const killFeed = document.getElementById('kill-feed');
 const victoryOverlay = document.getElementById('victory-overlay');
+const infoBtn = document.getElementById('info-btn');
+const infoOverlay = document.getElementById('info-overlay');
+const closeInfoBtn = document.getElementById('close-info-btn');
 
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
@@ -37,6 +41,11 @@ document.addEventListener('DOMContentLoaded', () => {
   themeToggle.addEventListener('click', toggleTheme);
   obstacleModeBtn.addEventListener('click', toggleObstacleMode);
   arenaCanvas.addEventListener('click', handleCanvasClick);
+  infoBtn.addEventListener('click', toggleInfoModal);
+  closeInfoBtn.addEventListener('click', toggleInfoModal);
+  infoOverlay.addEventListener('click', (e) => {
+    if (e.target === infoOverlay) toggleInfoModal();
+  });
 
   // Default to light theme
   const savedTheme = localStorage.getItem('theme');
@@ -59,6 +68,11 @@ function toggleTheme() {
     ? '<i class="fa-solid fa-moon"></i>'
     : '<i class="fa-regular fa-sun"></i>';
   localStorage.setItem('theme', isLight ? 'light' : 'dark');
+}
+
+// Info Modal
+function toggleInfoModal() {
+  infoOverlay.classList.toggle('visible');
 }
 
 // Obstacle Mode
@@ -196,10 +210,23 @@ function connectSSE() {
     }
     turnDisplay.textContent = data.turn;
     zoneDisplay.textContent = data.zone.radius;
+
+    // Mark all alive agents as thinking
+    thinkingAgents.clear();
+    for (const [agentId, agent] of Object.entries(data.agents)) {
+      if (agent.is_alive) {
+        thinkingAgents.add(agentId);
+      }
+    }
+    updateAgentCards(data.agents);
   });
 
   eventSource.addEventListener('action_executed', (e) => {
     const data = JSON.parse(e.data);
+
+    // Remove agent from thinking state
+    thinkingAgents.delete(data.agentId);
+    updateThinkingIndicator(data.agentId, false);
 
     // Store events for damage display
     lastActionEvents = data.events || [];
@@ -304,7 +331,7 @@ function connectSSE() {
     gamePhase = 'finished';
     statusText.textContent = 'Game over';
     addLogEntry('system', `🏆 ${highlightAgentName(data.winner)} WINS`);
-    showVictory(data.winner, data.winnerAgent, data.turn);
+    showVictory(data);
     startBtn.disabled = false;
   });
 
@@ -386,6 +413,9 @@ function updateAgentCards(agents) {
       });
     }
 
+    const isThinking = thinkingAgents.has(agent.id);
+    if (isThinking) card.classList.add('thinking');
+
     card.innerHTML = `
       <div class="agent-card-header">
         <div class="agent-name" style="color: ${agent.color}">${agent.name}</div>
@@ -402,11 +432,31 @@ function updateAgentCards(agents) {
       </div>
       <div class="agent-charm">${agent.charm ? `${agent.charm.type.toUpperCase()} ${agent.charm.uses_left > 0 ? '●' : '○'}` : 'No charm'}</div>
       <div class="agent-status">${effectsBadges.join(' ')}</div>
+      <div class="thinking-indicator" id="thinking-${agent.id}" style="display: ${isThinking ? 'flex' : 'none'}">
+        <i class="fa-solid fa-circle-notch fa-spin"></i> Thinking...
+      </div>
       <div class="agent-response-time" id="rt-${agent.id}"></div>
     `;
 
     agentCardsContainer.appendChild(card);
   });
+}
+
+function updateThinkingIndicator(agentId, isThinking) {
+  const indicator = document.getElementById(`thinking-${agentId}`);
+  const card = indicator?.closest('.agent-card');
+
+  if (indicator) {
+    indicator.style.display = isThinking ? 'flex' : 'none';
+  }
+
+  if (card) {
+    if (isThinking) {
+      card.classList.add('thinking');
+    } else {
+      card.classList.remove('thinking');
+    }
+  }
 }
 
 function updateAgentResponseTime(agentId, responseTime, timedOut) {
@@ -616,8 +666,92 @@ function showKillFeed(agentId) {
   }, 4000);
 }
 
+// Match Statistics Calculation
+function calculateMatchStats(gameState) {
+  const stats = {
+    gpt: { damageDealt: 0, kills: 0, itemsCollected: 0, eliminatedTurn: 0, lastDamageBy: null },
+    claude: { damageDealt: 0, kills: 0, itemsCollected: 0, eliminatedTurn: 0, lastDamageBy: null },
+    haiku: { damageDealt: 0, kills: 0, itemsCollected: 0, eliminatedTurn: 0, lastDamageBy: null },
+    mini: { damageDealt: 0, kills: 0, itemsCollected: 0, eliminatedTurn: 0, lastDamageBy: null }
+  };
+
+  for (const log of gameState.combat_log) {
+    // Parse damage: "gpt hit claude for 12 damage"
+    if (log.type === 'damage') {
+      const match = log.event.match(/(\w+) hit (\w+) for (\d+) damage/);
+      if (match) {
+        const attacker = match[1];
+        const target = match[2];
+        const damage = parseInt(match[3]);
+        stats[attacker].damageDealt += damage;
+        // Track who last damaged each agent (for kill credit)
+        stats[target].lastDamageBy = attacker;
+      }
+    }
+
+    // Parse eliminations: "claude has been ELIMINATED!"
+    if (log.event && log.event.includes('ELIMINATED')) {
+      const match = log.event.match(/(\w+) has been ELIMINATED/);
+      if (match) {
+        const eliminated = match[1];
+        stats[eliminated].eliminatedTurn = log.turn;
+        // Award kill to whoever last damaged them
+        if (stats[eliminated].lastDamageBy) {
+          stats[stats[eliminated].lastDamageBy].kills++;
+        }
+      }
+    }
+
+    // Parse pickups: "gpt picked up health_pack"
+    if (log.type === 'pickup' || (log.event && log.event.includes('picked up'))) {
+      const match = log.event.match(/(\w+) picked up/);
+      if (match) {
+        stats[match[1]].itemsCollected++;
+      }
+    }
+  }
+
+  return stats;
+}
+
+function calculateMVPAwards(stats, agents, finalTurn) {
+  const awards = {
+    damageKing: null,
+    survivor: null,
+    itemHoarder: null
+  };
+
+  let maxDamage = 0;
+  let maxSurvival = 0;
+  let maxItems = 0;
+
+  for (const [agentId, agentStats] of Object.entries(stats)) {
+    // Damage King
+    if (agentStats.damageDealt > maxDamage) {
+      maxDamage = agentStats.damageDealt;
+      awards.damageKing = agentId;
+    }
+
+    // Survivor (highest turn survived)
+    const survivalTurn = agentStats.eliminatedTurn || finalTurn;
+    if (survivalTurn > maxSurvival) {
+      maxSurvival = survivalTurn;
+      awards.survivor = agentId;
+    }
+
+    // Item Hoarder
+    if (agentStats.itemsCollected > maxItems) {
+      maxItems = agentStats.itemsCollected;
+      awards.itemHoarder = agentId;
+    }
+  }
+
+  return awards;
+}
+
 // Victory
-function showVictory(winnerId, winnerAgent, turn) {
+function showVictory(gameOverData) {
+  const { winner, winnerAgent, turn, agents } = gameOverData;
   victoryOverlay.classList.add('visible');
 
   const colors = {
@@ -627,19 +761,56 @@ function showVictory(winnerId, winnerAgent, turn) {
     mini: '#9333ea'
   };
 
+  // Calculate match stats and MVP awards
+  const stats = calculateMatchStats(currentState);
+  const awards = calculateMVPAwards(stats, agents, turn);
+
+  // Render winner sprite
   const canvas = document.getElementById('victory-sprite');
   canvas.width = 120;
   canvas.height = 120;
   const ctx = canvas.getContext('2d');
   ctx.imageSmoothingEnabled = false;
 
-  const sprite = window.PIXELS.generateAgentSprite(winnerId, winnerAgent.archetype);
+  const sprite = window.PIXELS.generateAgentSprite(winner, winnerAgent.archetype);
   if (sprite) drawSpriteToCtx(ctx, sprite, 0, 0, 120, 120);
 
+  // Set winner info
   document.getElementById('victory-name').textContent = winnerAgent.name;
-  document.getElementById('victory-name').style.color = colors[winnerId];
+  document.getElementById('victory-name').style.color = colors[winner];
   document.getElementById('victory-archetype').textContent = winnerAgent.archetype.toUpperCase();
   document.getElementById('victory-stats').textContent = `${winnerAgent.health} HP remaining | Turn ${turn}`;
+
+  // Populate match stats table
+  const statsTableBody = document.getElementById('stats-table-body');
+  statsTableBody.innerHTML = '';
+
+  for (const [agentId, agent] of Object.entries(agents)) {
+    const agentStat = stats[agentId];
+    const survivalTurn = agentStat.eliminatedTurn || turn;
+    const isWinner = agentId === winner;
+
+    const row = document.createElement('tr');
+    row.className = isWinner ? 'winner-row' : '';
+    row.innerHTML = `
+      <td style="color: ${colors[agentId]}; font-weight: 600;">${agent.name}${isWinner ? ' 👑' : ''}</td>
+      <td>${agentStat.damageDealt}</td>
+      <td>${agentStat.kills}</td>
+      <td>${agentStat.itemsCollected}</td>
+      <td>${survivalTurn}</td>
+    `;
+    statsTableBody.appendChild(row);
+  }
+
+  // Populate MVP awards
+  document.getElementById('damage-king-name').textContent = agents[awards.damageKing].name;
+  document.getElementById('damage-king-name').style.color = colors[awards.damageKing];
+
+  document.getElementById('survivor-name').textContent = agents[awards.survivor].name;
+  document.getElementById('survivor-name').style.color = colors[awards.survivor];
+
+  document.getElementById('item-hoarder-name').textContent = agents[awards.itemHoarder].name;
+  document.getElementById('item-hoarder-name').style.color = colors[awards.itemHoarder];
 }
 
 function drawSpriteToCtx(ctx, sprite, x, y, width, height) {
