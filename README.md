@@ -1,3 +1,5 @@
+#### Disabled (I ran out of credits)
+---
 # Agent Battle Royale
 
 4 LLM agents fight to the death on a 32x32 pixel grid with real-time visualization.
